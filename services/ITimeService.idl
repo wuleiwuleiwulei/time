@@ -1,0 +1,43 @@
+/*
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import ITimerCallback;
+sequenceable OHOS.IRemoteObject;
+sequenceable OHOS.AbilityRuntime.WantAgent.WantAgent;
+interface OHOS.MiscServices.ITimeService {
+    void SetTime([in] long time, [in] byte apiVersion);
+    void SetAutoTime([in] boolean autoTime);
+    void SetTimeZone([in] String timezoneId, [in] byte apiVersion);
+    void GetTimeZone([out] String timezoneId);
+    void GetThreadTimeMs([out] long time);
+    void GetThreadTimeNs([out] long time);
+    void CreateTimer([in] String name, [in] int type, [in] boolean repeat, [in] boolean disposable,
+                     [in] boolean autoRestore, [in] unsigned long interval, [in] WantAgent wantAgent,
+                     [in] IRemoteObject timerCallback, [inout] unsigned long timerId);
+    void CreateTimerWithoutWA([in] String name, [in] int type, [in] boolean repeat, [in] boolean disposable,
+                     [in] boolean autoRestore, [in] unsigned long interval, [in] IRemoteObject timerCallback,
+                     [inout] unsigned long timerId);
+    void StartTimer([in] unsigned long timerId, [in] unsigned long triggerTime);
+    void StopTimer([in] unsigned long timerId);
+    void DestroyTimer([in] unsigned long timerId);
+    [oneway] void DestroyTimerAsync([in] unsigned long timerId);
+    void ProxyTimer([in] int uid, [in] List<int> pidVector, [in] boolean isProxy, [in] boolean needRetrigger);
+    void ResetAllProxy();
+    void AdjustTimer([in] boolean isAdjust, [in] unsigned int interval, [in] unsigned int delta);
+    void SetTimerExemption([in] List<String> nameArr, [in] boolean isExemption);
+    void GetNtpTimeMs([out] long time);
+    void GetRealTimeMs([out] long time);
+    void SetAdjustPolicy([in] Map<String, unsigned int> policyMap);
+}

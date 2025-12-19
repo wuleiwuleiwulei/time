@@ -1,0 +1,269 @@
+# Copyright (C) 2021-2023 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/config/components/idl_tool/idl.gni")
+import("../time.gni")
+
+config("time_service_gen_config") {
+  include_dirs = [ "${target_gen_dir}" ]
+}
+
+config("time_service_config") {
+  visibility = [ ":*" ]
+  include_dirs = [
+    "${target_gen_dir}",
+    "${api_path}/include",
+    "../utils/native/include",
+    "time/include",
+    "time/include/inner_api_include",
+    "timer/include",
+    "dfx/include",
+    "${time_service_path}",
+  ]
+  cflags = [ "-fvisibility=hidden" ]
+  cflags_cc = [
+    "-fvisibility-inlines-hidden",
+    "-fvisibility=hidden",
+    "-ffunction-sections",
+    "-fdata-sections",
+    "-Os",
+  ]
+}
+
+idl_gen_interface("timeservice_interface") {
+  sources = [ "ITimeService.idl" ]
+  sources_callback = [ "ITimerCallback.idl" ]
+  log_domainid = "0xD0001C41"
+  log_tag = "TimeClient"
+  subsystem_name = "time"
+  part_name = "time_service"
+}
+
+ohos_source_set("timeservice_proxy") {
+  configs = [ ":time_service_config" ]
+  sanitize = {
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+  }
+  output_values = get_target_outputs(":timeservice_interface")
+  sources = filter_include(output_values, [ "*callback_stub.cpp" ])
+  sources += filter_include(output_values, [ "*service_proxy.cpp" ])
+
+  deps = [ ":timeservice_interface" ]
+  external_deps = [
+    "ability_base:configuration",
+    "ability_runtime:wantagent_innerkits",
+    "hilog:libhilog",
+    "ipc:ipc_single",
+    "samgr:samgr_proxy",
+  ]
+  branch_protector_ret = "pac_ret"
+  subsystem_name = "time"
+  part_name = "time_service"
+}
+
+ohos_shared_library("time_system_ability") {
+  configs = [ "${time_utils_path}:utils_config" ]
+  configs += [ ":time_service_config" ]
+  configs += [ "//build/config/gcc:symbol_visibility_hidden" ]
+  sources = [
+    "./time_system_ability.cpp",
+    "dfx/src/time_sysevent.cpp",
+    "time/src/event_manager.cpp",
+    "time/src/itimer_info.cpp",
+    "time/src/ntp_trusted_time.cpp",
+    "time/src/ntp_update_time.cpp",
+    "time/src/simple_timer_info.cpp",
+    "time/src/sntp_client.cpp",
+    "time/src/time_service_notify.cpp",
+    "time/src/time_tick_notify.cpp",
+    "time/src/time_zone_info.cpp",
+    "timer/src/batch.cpp",
+    "timer/src/cjson_helper.cpp",
+    "timer/src/timer_handler.cpp",
+    "timer/src/timer_info.cpp",
+    "timer/src/timer_manager.cpp",
+    "timer/src/timer_proxy.cpp",
+  ]
+  output_values = get_target_outputs(":timeservice_interface")
+  sources += filter_include(output_values, [ "*service_stub.cpp" ])
+  sources += filter_include(output_values, [ "*callback_proxy.cpp" ])
+
+  deps = [
+    ":timeservice_interface",
+    "${time_utils_path}:time_utils",
+  ]
+  external_deps = [
+    "ability_base:configuration",
+    "ability_runtime:wantagent_innerkits",
+    "access_token:libaccesstoken_sdk",
+    "access_token:libtokenid_sdk",
+    "cJSON:cjson",
+    "common_event_service:cesfwk_innerkits",
+    "hilog:libhilog",
+    "hisysevent:libhisysevent",
+    "init:libbeget_proxy",
+    "ipc:ipc_single",
+    "safwk:system_ability_fwk",
+    "samgr:samgr_proxy",
+  ]
+  defines = []
+  if (time_service_debug_able) {
+    defines += [ "DEBUG_ENABLE" ]
+  }
+  if (time_service_hidumper_able) {
+    defines += [ "HIDUMPER_ENABLE" ]
+    sources += [
+      "dfx/src/time_cmd_dispatcher.cpp",
+      "dfx/src/time_cmd_parse.cpp",
+    ]
+  }
+
+  if (!is_emulator && time_service_set_auto_reboot) {
+    defines += [ "SET_AUTO_REBOOT_ENABLE" ]
+  }
+
+  if (time_service_multi_account) {
+    defines += [ "MULTI_ACCOUNT_ENABLE" ]
+    external_deps += [ "os_account:os_account_innerkits" ]
+  }
+
+  if (device_standby) {
+    external_deps += [ "device_standby:standby_innerkits" ]
+    defines += [ "DEVICE_STANDBY_ENABLE" ]
+  }
+  if (time_service_rdb_enable) {
+    defines += [ "RDB_ENABLE" ]
+    sources += [ "timer/src/timer_database.cpp" ]
+    external_deps += [
+      "relational_store:native_dataability",
+      "relational_store:native_rdb",
+    ]
+  }
+
+  if (defined(global_parts_info) &&
+      defined(global_parts_info.powermgr_power_manager)) {
+    external_deps += [ "power_manager:powermgr_client" ]
+    defines += [ "POWER_MANAGER_ENABLE" ]
+  }
+
+  branch_protector_ret = "pac_ret"
+  sanitize = {
+    ubsan = true
+    boundary_sanitize = true
+    cfi = true
+    cfi_cross_dso = true
+    debug = time_sanitize_debug
+  }
+  part_name = "time_service"
+  subsystem_name = "time"
+}
+
+ohos_static_library("time_system_ability_static") {
+  configs = [ "${time_utils_path}:utils_config" ]
+  configs += [ ":time_service_config" ]
+  configs += [ "//build/config/gcc:symbol_visibility_hidden" ]
+  sources = [
+    "./time_system_ability.cpp",
+    "dfx/src/time_sysevent.cpp",
+    "time/src/event_manager.cpp",
+    "time/src/itimer_info.cpp",
+    "time/src/ntp_trusted_time.cpp",
+    "time/src/ntp_update_time.cpp",
+    "time/src/simple_timer_info.cpp",
+    "time/src/sntp_client.cpp",
+    "time/src/time_service_notify.cpp",
+    "time/src/time_tick_notify.cpp",
+    "time/src/time_zone_info.cpp",
+    "timer/src/batch.cpp",
+    "timer/src/cjson_helper.cpp",
+    "timer/src/timer_handler.cpp",
+    "timer/src/timer_info.cpp",
+    "timer/src/timer_manager.cpp",
+    "timer/src/timer_proxy.cpp",
+  ]
+  output_values = get_target_outputs(":timeservice_interface")
+  print("time_system_ability_static output_values:", output_values)
+  sources += filter_include(output_values, [ "*service_stub.cpp" ])
+  sources += filter_include(output_values, [ "*callback_proxy.cpp" ])
+
+  deps = [
+    ":timeservice_interface",
+    "${time_utils_path}:time_utils",
+  ]
+  external_deps = [
+    "ability_base:configuration",
+    "ability_runtime:wantagent_innerkits",
+    "access_token:libaccesstoken_sdk",
+    "access_token:libtokenid_sdk",
+    "cJSON:cjson",
+    "common_event_service:cesfwk_innerkits",
+    "hilog:libhilog",
+    "hisysevent:libhisysevent",
+    "init:libbeget_proxy",
+    "ipc:ipc_single",
+    "safwk:system_ability_fwk",
+    "samgr:samgr_proxy",
+  ]
+  defines = []
+  if (time_service_debug_able) {
+    defines += [ "DEBUG_ENABLE" ]
+  }
+  if (time_service_hidumper_able) {
+    defines += [ "HIDUMPER_ENABLE" ]
+    sources += [
+      "dfx/src/time_cmd_dispatcher.cpp",
+      "dfx/src/time_cmd_parse.cpp",
+    ]
+  }
+
+  if (device_standby) {
+    external_deps += [ "device_standby:standby_innerkits" ]
+    defines += [ "DEVICE_STANDBY_ENABLE" ]
+  }
+
+  if (!is_emulator && time_service_set_auto_reboot) {
+    defines += [ "SET_AUTO_REBOOT_ENABLE" ]
+  }
+
+  if (time_service_multi_account) {
+    defines += [ "MULTI_ACCOUNT_ENABLE" ]
+    external_deps += [ "os_account:os_account_innerkits" ]
+  }
+  if (time_service_rdb_enable) {
+    defines += [ "RDB_ENABLE" ]
+    sources += [ "timer/src/timer_database.cpp" ]
+    external_deps += [
+      "relational_store:native_dataability",
+      "relational_store:native_rdb",
+    ]
+  }
+
+  if (defined(global_parts_info) &&
+      defined(global_parts_info.powermgr_power_manager)) {
+    external_deps += [ "power_manager:powermgr_client" ]
+    defines += [ "POWER_MANAGER_ENABLE" ]
+  }
+
+  branch_protector_ret = "pac_ret"
+  sanitize = {
+    ubsan = true
+    boundary_sanitize = true
+    cfi = true
+    cfi_cross_dso = true
+    debug = time_sanitize_debug
+  }
+  part_name = "time_service"
+  subsystem_name = "time"
+}
