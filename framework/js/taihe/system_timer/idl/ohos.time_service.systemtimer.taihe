@@ -1,0 +1,56 @@
+/*
+ * Copyright (c) 2025-2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+@!namespace("@ohos.systemTimer", "systemTimer")
+@!sts_inject("""
+static { loadLibraryWithPermissionCheck("systemtimer_taihe_native.z", "@ohos.systemTimer") }
+""")
+@!sts_inject_into_module("
+    import {WantAgent} from '@ohos.app.ability.wantAgent';
+")
+
+struct TimerOptions {
+    type: i32;
+    repeat: bool;
+    autoRestore: Optional<bool>;
+    interval: Optional<i64>;
+    name: Optional<String>;
+    wantAgent: Optional<@sts_type("WantAgent") Opaque>;
+    callback: Optional<() => void>;
+}
+
+@const
+enum TimerType: i32 {
+    TIMER_TYPE_REALTIME = 1,
+    TIMER_TYPE_WAKEUP = 2,
+    TIMER_TYPE_EXACT = 4,
+    TIMER_TYPE_IDLE = 8
+}
+
+@gen_promise("createTimer")
+@gen_async("createTimer")
+function CreateTimerSync(options: TimerOptions): i64;
+
+@gen_promise("startTimer")
+@gen_async("startTimer")
+function StartTimerSync(timer: i64, triggerTime: i64);
+
+@gen_promise("stopTimer")
+@gen_async("stopTimer")
+function StopTimerSync(timer: i64);
+
+@gen_promise("destroyTimer")
+@gen_async("destroyTimer")
+function DestroyTimerSync(timer: i64);

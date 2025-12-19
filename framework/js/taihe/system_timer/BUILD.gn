@@ -1,0 +1,98 @@
+# Copyright (C) 2025 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//base/time/time_service/time.gni")
+import("//build/config/components/ets_frontend/ets2abc_config.gni")
+import("//build/ohos.gni")
+import("//build/ohos/taihe_idl/taihe.gni")
+
+subsystem_name = "time"
+part_name = "time_service"
+taihe_generated_file_path_systemtimer =
+    "$taihe_file_path/out/$subsystem_name/$part_name/systemtimer"
+
+copy_taihe_idl("copy_systemtimer") {
+  sources = [ "idl/ohos.time_service.systemtimer.taihe" ]
+}
+
+ohos_taihe("run_taihe") {
+  taihe_generated_file_path = "${taihe_generated_file_path_systemtimer}"
+  deps = [ ":copy_systemtimer" ]
+  outputs = [
+    "$taihe_generated_file_path/src/ohos.time_service.systemtimer.ani.cpp",
+    "$taihe_generated_file_path/src/ohos.time_service.systemtimer.abi.c",
+  ]
+}
+taihe_shared_library("systemtimer_taihe_native") {
+  taihe_generated_file_path = "${taihe_generated_file_path_systemtimer}"
+  part_name = "$part_name"
+  subsystem_name = "$subsystem_name"
+  sources = get_target_outputs(":run_taihe")
+  include_dirs = [
+    "include",
+    "../common/include",
+    "../../../interfaces/inner_api/include",
+    "${time_utils_path}/native/include",
+  ]
+  sources += [
+    "../common/src/ani_utils.cpp",
+    "src/ani_constructor.cpp",
+    "src/ani_system_timer.cpp",
+    "src/ohos.time_service.systemtimer.impl.cpp",
+  ]
+  deps = [
+    ":run_taihe",
+    "//base/time/time_service/interfaces/inner_api:time_client",
+  ]
+  external_deps = [
+    "ability_base:configuration",
+    "ability_runtime:ani_wantagent_common",
+    "ability_runtime:wantagent_innerkits",
+    "c_utils:utils",
+    "hilog:libhilog",
+    "init:libbegetutil",
+    "ipc:ipc_single",
+    "samgr:samgr_proxy",
+  ]
+  branch_protector_ret = "pac_ret"
+  sanitize = {
+    integer_overflow = true
+    ubsan = true
+    boundary_sanitize = true
+    cfi = true
+    cfi_cross_dso = true
+    debug = time_sanitize_debug
+  }
+}
+
+generate_static_abc("systemtimer_abc") {
+  base_url = "$taihe_generated_file_path_systemtimer"
+  files = [ "$taihe_generated_file_path_systemtimer/@ohos.systemTimer.ets" ]
+  is_boot_abc = "True"
+  device_dst_file = "/system/framework/systemtimer_abc.abc"
+  dependencies = [ ":run_taihe" ]
+}
+
+ohos_prebuilt_etc("systemtimer_etc") {
+  source = "$target_out_dir/systemtimer_abc.abc"
+  module_install_dir = "framework"
+  part_name = "$part_name"
+  subsystem_name = "$subsystem_name"
+  deps = [ ":systemtimer_abc" ]
+}
+group("systemtimer_taihe") {
+  deps = [
+    ":systemtimer_etc",
+    ":systemtimer_taihe_native",
+  ]
+}
